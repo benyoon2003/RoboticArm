@@ -4,7 +4,6 @@
 // Imported header file and modules
 
 using namespace std;
-
 /**
 * RoboticArm() sets array values that were created in the header file
 *
@@ -12,22 +11,22 @@ using namespace std;
 * @return none
 */
 RoboticArm::RoboticArm(){
-   servo_pin[0] = 29;
-   servo_pin[1] = 27;
-   servo_pin[2] = 25;
-   servo_pin[3] = 23;
-   servo_pin[4] = 28;
-   servo_position[0] = 1500;
-   servo_position[1] = 1500;
-   servo_position[2] = 1500;
-   servo_position[3] = 1500;
-   servo_position[4] = 1500;
- 
+    servo_pin[0] = 29;
+    servo_pin[1] = 27;
+    servo_pin[2] = 25;
+    servo_pin[3] = 23;
+    servo_pin[4] = 28;
+    servo_position[0] = 1500;
+    servo_position[1] = 1500;
+    servo_position[2] = 1500;
+    servo_position[3] = 1500;
+    servo_position[4] = 1500;
+
 }
 
 // Destructor that outputs a message
 RoboticArm::~RoboticArm(){
-   cout << "Terminating Robotic Arm operation" << endl;
+    cout << "Terminating Robotic Arm operation" << endl;
 }
 
 /**
@@ -57,9 +56,9 @@ int RoboticArm::SetRegisterBit(unsigned int dataValue, int index, int state){
 * @return none
 */
 void RoboticArm::PinDirectionSetup(int servo_num, int direction){
-   int in_out_state = RegisterRead(JP2_BASE);
-   in_out_state = SetRegisterBit(in_out_state, servo_pin[servo_num-1], direction);
-   RegisterWrite(JP2_BASE, in_out_state);
+    int in_out_state = RegisterRead(JP2_BASE);
+    in_out_state = SetRegisterBit(in_out_state, servo_pin[servo_num-1], direction);
+    RegisterWrite(JP2_BASE, in_out_state);
 }
 
 /**
@@ -71,11 +70,11 @@ void RoboticArm::PinDirectionSetup(int servo_num, int direction){
 * @return dCycle a pulse in μsec
 */
 int RoboticArm::setServoPosition(int degrees, int servo_num){
-   int dCycle;
+    int dCycle;
     // Converts degrees to μsec
-   dCycle = (degrees*10) + 600;
-   servo_position[servo_num-1] = dCycle;
-   return dCycle;
+    dCycle = (degrees*10) + 600;
+    servo_position[servo_num-1] = dCycle;
+    return dCycle;
 }
 
 /**
@@ -86,15 +85,46 @@ int RoboticArm::setServoPosition(int degrees, int servo_num){
 * @return none
 */
 void RoboticArm::GeneratePWM(int num_periods, int servo_num){
-   int DirBit;
-   for(int i=0; i <= num_periods; i++){
-      DirBit = RegisterRead(JP2_DDR);
-      DirBit = SetRegisterBit(DirBit, servo_pin[servo_num -1], 1);
-      RegisterWrite(JP2_DDR, DirBit);
+    int DirBit;
+    for(int i=0; i <= num_periods; i++){
+        DirBit = RegisterRead(JP2_DDR);
+        DirBit = SetRegisterBit(DirBit, servo_pin[servo_num -1], 1);
+        RegisterWrite(JP2_DDR, DirBit);
         // The duty cycle is determined by usleep
-      usleep(servo_position[servo_num-1]);
-      DirBit = SetRegisterBit(DirBit, servo_pin[servo_num -1], 0);
-                RegisterWrite(JP2_DDR, DirBit);
-      usleep(20000 - servo_position[servo_num-1]);
-   }  
+        usleep(servo_position[servo_num-1]);
+        DirBit = SetRegisterBit(DirBit, servo_pin[servo_num -1], 0);
+        RegisterWrite(JP2_DDR, DirBit);
+        usleep(20000 - servo_position[servo_num-1]);
+    }
 }
+
+/**
+* GenerateVariablePWM() evolves the pulse linearly
+*
+* @param  first_pulse posInt in μsec
+* @param  last_pulse posInt in μsec
+* @param  num_periods positive integer
+* @param  servo_num positive integer
+* @return none
+*/
+void RoboticArm::GenerateVariablePWM(int first_pulse, int last_pulse, int num_periods, int servo_num){
+   int degree;
+   float increment;
+    // If the start position degree is larger than the end
+   if (first_pulse > last_pulse) {
+      increment = -1 * (first_pulse - last_pulse) / ((float) num_periods);
+   }
+    // If the end position degree is larger than the start
+    else {
+      increment = (last_pulse - first_pulse) / ((float) num_periods);
+   }
+   float dCycle = first_pulse;
+    // Changes the dCycle every period by the increment
+   for (int i = 0; i < num_periods; i++) {
+      degree = (int) ((dCycle - 600) / 10);
+      setServoPosition(degree, servo_num);
+      GeneratePWM(1, servo_num);
+      dCycle += increment;
+   }
+}
+
